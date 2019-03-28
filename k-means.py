@@ -3,58 +3,41 @@ import matplotlib.pyplot as plt
 import seaborn as sns 
 import numpy as np
 from sklearn.cluster import KMeans
+from sklearn.datasets.samples_generator import make_blobs
+from sklearn.metrics import pairwise_distances_argmin
 from copy import deepcopy
 
-data = pd.read_csv("k-means.csv")
-#print(data.shape)
-#print(data.head())
+X,y = make_blobs ( n_samples = 300, centers = 2, cluster_std = 0.6 ,random_state = 0 )
+plt.scatter( X[:,0], X[:,1], s = 50)
+#plt.show()
 
-f1 = data['Weight Index'].values
-f2 = data['pH'].values
-
-X = np.array(list(zip(f1, f2)))
-
-plt.scatter(f1, f2, c='black', s=7)
+kmeans = KMeans(n_clusters = 2)
+kmeans.fit(X)
+y_kmeans = kmeans.predict(X) 
+plt.scatter(X[:, 0], X[:, 1], c=y_kmeans, s=50, cmap='viridis')
 plt.show()
 
-def dist(a, b, ax=1):
-    return np.linalg.norm(a - b, axis=ax)
+def find_clusters(X, n_clusters, rseed=2):
+    # 1. Randomly choose clusters
+    rng = np.random.RandomState(rseed)
+    i = rng.permutation(X.shape[0])[:n_clusters]
+    centers = X[i]
+    
+    while True:
+        # 2a. Assign labels based on closest center
+        labels = pairwise_distances_argmin(X, centers)
+        
+        # 2b. Find new centers from means of points
+        new_centers = np.array([X[labels == i].mean(0)
+                                for i in range(n_clusters)])
+        
+        # 2c. Check for convergence
+        if np.all(centers == new_centers):
+            break
+        centers = new_centers
+    
+    return centers, labels
 
-k = 2
-# X coordinates of random centroids
-C_x = np.random.randint(0, np.max(X), size=k)
-# Y coordinates of random centroids
-C_y = np.random.randint(0, np.max(X), size=k)
-C = np.array(list(zip(C_x, C_y)), dtype=np.float32)
-print(C)
-
-plt.scatter(f1, f2, c='#050505', s=7)
+centers, labels = find_clusters(X, 2)
+plt.scatter(X[:, 0], X[:, 1], c=labels, s=50, cmap='viridis')
 plt.show()
-plt.scatter(C_x, C_y, marker='*', s=200, c='g')
-plt.show()
-
-C_old = np.zeros(C.shape)
-# Cluster Lables(0, 1, 2)
-clusters = np.zeros(len(X))
-# Error func. - Distance between new centroids and old centroids
-error = dist(C, C_old, None)
-# Loop will run till the error becomes zero
-while error != 0:
-    # Assigning each value to its closest cluster
-    for i in range(len(X)):
-        distances = dist(X[i], C)
-        cluster = np.argmin(distances)
-        clusters[i] = cluster
-    # Storing the old centroid values
-    C_old = deepcopy(C)
-    # Finding the new centroids by taking the average value
-    for i in range(k):
-        points = [X[j] for j in range(len(X)) if clusters[j] == i]
-        C[i] = np.mean(points, axis=0)
-    error = dist(C, C_old, None)
-colors = ['r', 'g', 'b', 'y', 'c', 'm']
-fig, ax = plt.subplots()
-for i in range(k):
-        points = np.array([X[j] for j in range(len(X)) if clusters[j] == i])
-        ax.scatter(points[:, 0], points[:, 1], s=7, c=colors[i])
-ax.scatter(C[:, 0], C[:, 1], marker='*', s=200, c='#050505')
